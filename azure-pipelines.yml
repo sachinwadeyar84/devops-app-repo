@@ -33,17 +33,21 @@ steps:
     az acr login --name $(ACR_NAME)
   displayName: 'ACR Login'
 
-# 📦 Push Image
+# 📦 Push Image (version + latest)
 - script: |
     docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
-  displayName: 'Push Image to ACR'
+    
+    docker tag $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) $(ACR_NAME).azurecr.io/$(IMAGE_NAME):latest
+    
+    docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):latest
+  displayName: 'Push Image to ACR (version + latest)'
 
 # ☸️ Get AKS Credentials
 - script: |
     az aks get-credentials --resource-group devops-rg --name devops-aks --overwrite-existing
   displayName: 'Get AKS Credentials'
 
-# 🔐 Create/Update ACR Secret
+# 🔐 Create/Update ACR Secret (FIXED for Windows)
 - script: |
     kubectl create secret docker-registry acr-secret ^
       --docker-server=$(ACR_NAME).azurecr.io ^
@@ -52,7 +56,12 @@ steps:
       --dry-run=client -o yaml | kubectl apply -f -
   displayName: 'Create/Update ACR Secret'
 
-# 🚀 Deploy to AKS (DYNAMIC IMAGE)
+# 🚀 Deploy Latest Image to AKS
 - script: |
-    kubectl set image deployment/devops-app devops-app=$(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+    kubectl set image deployment/devops-app devops-app=$(ACR_NAME).azurecr.io/$(IMAGE_NAME):latest
   displayName: 'Deploy Latest Image'
+
+# 🔄 Restart pods to ensure pull
+- script: |
+    kubectl rollout restart deployment devops-app
+  displayName: 'Restart Deployment'
