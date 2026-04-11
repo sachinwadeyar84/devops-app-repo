@@ -7,29 +7,52 @@ pool:
 variables:
 - group: terraform-secrets
 
+- name: ACR_NAME
+  value: sachindevops
+
+- name: IMAGE_NAME
+  value: devops-app
+
+- name: IMAGE_TAG
+  value: $(Build.BuildId)
+
 steps:
 
-# Step 1: Build Docker Image
-- script: |
-    docker build -t devops-app .
-  displayName: 'Build Docker Image'
-
-# Step 2: Azure Login (FIXED)
+# 🔐 Azure Login
 - script: |
     az login --service-principal -u $(ARM_CLIENT_ID) -p $(ARM_CLIENT_SECRET) --tenant $(ARM_TENANT_ID)
   displayName: 'Azure Login'
 
-# Step 3: Login to ACR
+# 🐳 Build Docker Image
 - script: |
-    az acr login --name sachindevops
-  displayName: 'Login to ACR'
+    docker build -t $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG) .
+  displayName: 'Build Docker Image'
 
-# Step 4: Tag Docker Image
+# 🔑 Login to ACR
 - script: |
-    docker tag devops-app sachindevops.azurecr.io/devops-app:v1
-  displayName: 'Tag Docker Image'
+    az acr login --name $(ACR_NAME)
+  displayName: 'ACR Login'
 
-# Step 5: Push Docker Image to ACR
+# 📦 Push Image
 - script: |
-    docker push sachindevops.azurecr.io/devops-app:v1
-  displayName: 'Push Docker Image'
+    docker push $(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+  displayName: 'Push Image to ACR'
+
+# ☸️ Get AKS Credentials
+- script: |
+    az aks get-credentials --resource-group devops-rg --name devops-aks --overwrite-existing
+  displayName: 'Get AKS Credentials'
+
+# 🔐 Create/Update ACR Secret
+- script: |
+    kubectl create secret docker-registry acr-secret ^
+      --docker-server=$(ACR_NAME).azurecr.io ^
+      --docker-username=$(ACR_USERNAME) ^
+      --docker-password=$(ACR_PASSWORD) ^
+      --dry-run=client -o yaml | kubectl apply -f -
+  displayName: 'Create/Update ACR Secret'
+
+# 🚀 Deploy to AKS (DYNAMIC IMAGE)
+- script: |
+    kubectl set image deployment/devops-app devops-app=$(ACR_NAME).azurecr.io/$(IMAGE_NAME):$(IMAGE_TAG)
+  displayName: 'Deploy Latest Image'
