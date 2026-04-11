@@ -1,1 +1,38 @@
+trigger:
+- main
 
+pool:
+  name: Default
+
+variables:
+- group: terraform-secrets
+
+steps:
+
+# Step 1: Build Docker Image
+- script: |
+    docker build -t devops-app .
+  displayName: 'Build Docker Image'
+
+# Step 2: Login to Azure
+- script: |
+    az login --service-principal \
+      -u $(ARM_CLIENT_ID) \
+      -p $(ARM_CLIENT_SECRET) \
+      --tenant $(ARM_TENANT_ID)
+  displayName: 'Azure Login'
+
+# Step 3: Login to ACR
+- script: |
+    az acr login --name $(ACR_NAME)
+  displayName: 'Login to ACR'
+
+# Step 4: Tag Image
+- script: |
+    docker tag devops-app $(ACR_NAME).azurecr.io/devops-app:v1
+  displayName: 'Tag Docker Image'
+
+# Step 5: Push Image
+- script: |
+    docker push $(ACR_NAME).azurecr.io/devops-app:v1
+  displayName: 'Push Docker Image'
