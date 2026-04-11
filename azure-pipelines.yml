@@ -14,7 +14,7 @@ steps:
     docker build -t devops-app .
   displayName: 'Build Docker Image'
 
-# Step 2: Login to Azure
+# Step 2: Azure Login (Service Principal)
 - script: |
     az login --service-principal \
       -u $(ARM_CLIENT_ID) \
@@ -24,15 +24,15 @@ steps:
 
 # Step 3: Login to ACR
 - script: |
-    az acr login --name $(ACR_NAME)
+    az acr login --name sachindevops
   displayName: 'Login to ACR'
 
-# Step 4: Tag Image
+# Step 4: Tag Docker Image
 - script: |
-    docker tag devops-app $(ACR_NAME).azurecr.io/devops-app:v1
+    docker tag devops-app sachindevops.azurecr.io/devops-app:v1
   displayName: 'Tag Docker Image'
 
-# Step 5: Push Image
+# Step 5: Push Docker Image to ACR
 - script: |
-    docker push $(ACR_NAME).azurecr.io/devops-app:v1
+    docker push sachindevops.azurecr.io/devops-app:v1
   displayName: 'Push Docker Image'
